@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ladle — recipe roulette</title>
+
+<!-- PWA / phone install support -->
+<meta name="theme-color" content="#14271E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ladle">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%2314271E"/><text x="50" y="68" font-size="52" text-anchor="middle">🥄</text></svg>'>
+<link rel="manifest" href='data:application/manifest+json,{"name":"Ladle","short_name":"Ladle","start_url":".","display":"standalone","background_color":"%2314271E","theme_color":"%2314271E","icons":[{"src":"data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect width=%27100%27 height=%27100%27 rx=%2722%27 fill=%27%2314271E%27/><text x=%2750%27 y=%2768%27 font-size=%2752%27 text-anchor=%27middle%27>🥄</text></svg>","sizes":"any","type":"image/svg+xml"}]}'>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Karla:wght@400;500;700&family=Spline+Sans+Mono:wght@500&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --pine:#14271E;          /* app background — bistro chalkboard green */
+    --pine-2:#1E3528;        /* raised surfaces */
+    --pine-line:#2C4636;     /* hairlines on dark */
+    --card:#FBF6EA;          /* recipe ticket stock */
+    --card-line:#E2D9C4;
+    --ink:#243122;           /* text on card */
+    --ink-soft:#5C6A57;
+    --cream:#F2EDDD;         /* text on dark */
+    --cream-soft:#A8B5A0;
+    --yolk:#F4B73F;          /* breakfast */
+    --leaf:#9CCB66;          /* lunch */
+    --ember:#E2784B;         /* dinner */
+    --display:"Fraunces", Georgia, serif;
+    --body:"Karla", -apple-system, "Segoe UI", sans-serif;
+    --mono:"Spline Sans Mono", ui-monospace, Menlo, monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    background:var(--pine);
+    color:var(--cream);
+    font-family:var(--body);
+    min-height:100vh;
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 20px)
+      16px
+      calc(env(safe-area-inset-bottom, 0px) + 40px);
+    display:flex;
+    justify-content:center;
+  }
+  .app{ width:100%; max-width:560px; }
+
+  /* ---------- header ---------- */
+  header{ text-align:center; margin-bottom:22px; position:relative; }
+  .wordmark{
+    font-family:var(--display);
+    font-weight:900;
+    font-size:clamp(34px, 9vw, 44px);
+    letter-spacing:-0.02em;
+    color:var(--cream);
+  }
+  .wordmark .spoon{ display:inline-block; transform:rotate(-12deg); margin-right:4px; }
+  .tagline{
+    margin-top:6px;
+    color:var(--cream-soft);
+    font-size:15px;
+  }
+  .mute{
+    position:absolute;
+    top:2px; right:0;
+    appearance:none;
+    border:1px solid var(--pine-line);
+    background:var(--pine-2);
+    color:var(--cream);
+    width:42px; height:42px;
+    border-radius:50%;
+    font-size:18px;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .mute:focus-visible{ outline:3px solid var(--yolk); outline-offset:2px; }
+
+  /* ---------- meal picker ---------- */
+  .picker{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .meal-btn{
+    appearance:none;
+    border:1px solid var(--pine-line);
+    background:var(--pine-2);
+    color:var(--cream);
+    border-radius:14px;
+    padding:14px 6px 12px;
+    font-family:var(--body);
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    transition:transform .12s ease, border-color .12s ease, background .12s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .meal-btn .dot{
+    width:34px; height:34px;
+    border-radius:50%;
+    display:grid; place-items:center;
+    font-size:18px;
+    background:rgba(255,255,255,.06);
+  }
+  .meal-btn:active{ transform:scale(.96); }
+  .meal-btn:focus-visible{ outline:3px solid var(--yolk); outline-offset:2px; }
+  .meal-btn[aria-pressed="true"]{ background:#27513A; }
+  .meal-btn[data-meal="breakfast"][aria-pressed="true"]{ border-color:var(--yolk); }
+  .meal-btn[data-meal="lunch"][aria-pressed="true"]{ border-color:var(--leaf); }
+  .meal-btn[data-meal="dinner"][aria-pressed="true"]{ border-color:var(--ember); }
+
+  .spin-row{ display:flex; gap:10px; margin-bottom:26px; }
+  .spin-btn{
+    flex:1;
+    appearance:none;
+    border:none;
+    border-radius:14px;
+    padding:16px;
+    font-family:var(--body);
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:.01em;
+    color:#1C2A14;
+    background:var(--yolk);
+    cursor:pointer;
+    transition:transform .12s ease, filter .12s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .spin-btn:active{ transform:scale(.98); }
+  .spin-btn:focus-visible{ outline:3px solid var(--cream); outline-offset:2px; }
+  .spin-btn[disabled]{ filter:saturate(.4) brightness(.8); cursor:default; }
+  .spin-btn.meal-breakfast{ background:var(--yolk); }
+  .spin-btn.meal-lunch{ background:var(--leaf); }
+  .spin-btn.meal-dinner{ background:var(--ember); }
+
+  /* ---------- the ticket ---------- */
+  .rail{
+    height:10px;
+    border-bottom:2px solid var(--pine-line);
+    margin:0 26px 0;
+    position:relative;
+  }
+  .rail::before, .rail::after{
+    content:"";
+    position:absolute;
+    bottom:-5px;
+    width:8px; height:8px;
+    border-radius:50%;
+    background:var(--pine-line);
+  }
+  .rail::before{ left:18%; }
+  .rail::after{ right:18%; }
+
+  .ticket{
+    background:var(--card);
+    color:var(--ink);
+    border-radius:6px 6px 14px 14px;
+    margin-top:14px;
+    padding:26px 22px 26px;
+    position:relative;
+    box-shadow:0 18px 40px rgba(0,0,0,.35);
+  }
+  /* punched holes — the ticket hangs from the order rail */
+  .ticket::before, .ticket::after{
+    content:"";
+    position:absolute;
+    top:12px;
+    width:12px; height:12px;
+    border-radius:50%;
+    background:var(--pine);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.4);
+    z-index:2;
+  }
+  .ticket::before{ left:calc(18% - 2px); }
+  .ticket::after{ right:calc(18% - 2px); }
+
+  .ticket-empty{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--ink-soft);
+    font-size:16px;
+    line-height:1.5;
+  }
+  .ticket-empty .big{ font-size:34px; display:block; margin-bottom:10px; }
+
+  /* ---------- recipe illustration ---------- */
+  .hero{
+    margin:6px -22px 18px;          /* full-bleed inside the ticket */
+    height:160px;
+    display:grid;
+    place-items:center;
+    position:relative;
+    overflow:hidden;
+  }
+  /* placemat band: soft meal-color tint + woven stripes */
+  .hero.breakfast{ background:linear-gradient(rgba(244,183,63,.22), rgba(244,183,63,.22)); }
+  .hero.lunch{     background:linear-gradient(rgba(156,203,102,.24), rgba(156,203,102,.24)); }
+  .hero.dinner{    background:linear-gradient(rgba(226,120,75,.20), rgba(226,120,75,.20)); }
+  .hero::before{
+    content:"";
+    position:absolute; inset:0;
+    background:repeating-linear-gradient(
+      90deg,
+      transparent 0 14px,
+      rgba(36,49,34,.045) 14px 16px
+    );
+  }
+  .hero::after{ /* placemat edge stitching */
+    content:"";
+    position:absolute; left:0; right:0; top:8px; bottom:8px;
+    border-top:1.5px dashed rgba(36,49,34,.22);
+    border-bottom:1.5px dashed rgba(36,49,34,.22);
+    pointer-events:none;
+  }
+  .plate{
+    width:118px; height:118px;
+    border-radius:50%;
+    background:#FFFDF7;
+    box-shadow:
+      0 6px 16px rgba(36,49,34,.22),
+      inset 0 0 0 9px #FFFDF7,
+      inset 0 0 0 10.5px rgba(36,49,34,.18);
+    display:grid; place-items:center;
+    font-size:56px;
+    line-height:1;
+    position:relative;
+    z-index:1;
+    user-select:none;
+  }
+  .hero img.photo{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    z-index:1;
+  }
+
+  .meal-tag{
+    display:inline-block;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    padding:5px 12px;
+    border-radius:999px;
+    margin-bottom:12px;
+    color:#243122;
+  }
+  .meal-tag.breakfast{ background:var(--yolk); }
+  .meal-tag.lunch{ background:var(--leaf); }
+  .meal-tag.dinner{ background:var(--ember); color:#FFF6EC; }
+
+  .recipe-name{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(26px, 7vw, 34px);
+    line-height:1.1;
+    letter-spacing:-0.01em;
+    min-height:1.1em;
+  }
+  .recipe-name.spinning{ color:var(--ink-soft); }
+  .recipe-desc{
+    margin-top:8px;
+    color:var(--ink-soft);
+    font-size:15px;
+    line-height:1.5;
+  }
+  .meta{
+    display:flex;
+    gap:16px;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px dashed var(--card-line);
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--ink);
+  }
+  .meta span b{ font-weight:500; color:var(--ink-soft); margin-right:4px; }
+
+  .section-label{
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:22px 0 10px;
+  }
+  ul.ingredients{ list-style:none; }
+  ul.ingredients li{
+    display:flex;
+    gap:12px;
+    padding:7px 0;
+    border-bottom:1px solid #F1EBDA;
+    font-size:15px;
+    line-height:1.4;
+  }
+  ul.ingredients li .amt{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    flex:0 0 86px;
+    padding-top:1px;
+  }
+  ol.steps{ list-style:none; counter-reset:step; }
+  ol.steps li{
+    counter-increment:step;
+    display:flex;
+    gap:12px;
+    padding:9px 0;
+    font-size:15px;
+    line-height:1.55;
+  }
+  ol.steps li::before{
+    content:counter(step);
+    flex:0 0 26px;
+    height:26px;
+    border-radius:50%;
+    border:1.5px solid var(--ink);
+    display:grid;
+    place-items:center;
+    font-family:var(--mono);
+    font-size:13px;
+    margin-top:1px;
+  }
+
+  .again{
+    margin-top:22px;
+    width:100%;
+    appearance:none;
+    border:1.5px solid var(--ink);
+    background:transparent;
+    color:var(--ink);
+    border-radius:12px;
+    padding:13px;
+    font-family:var(--body);
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .again:active{ background:var(--ink); color:var(--card); }
+  .again:focus-visible{ outline:3px solid var(--ember); outline-offset:2px; }
+
+  footer{
+    text-align:center;
+    margin-top:28px;
+    color:var(--cream-soft);
+    font-size:13px;
+  }
+
+  /* gentle settle-in for the dealt ticket */
+  @keyframes deal{
+    from{ opacity:0; transform:translateY(10px) rotate(.4deg); }
+    to{ opacity:1; transform:translateY(0) rotate(0); }
+  }
+  .ticket.dealt{ animation:deal .35s ease both; }
+  @media (prefers-reduced-motion: reduce){
+    .ticket.dealt{ animation:none; }
+    .meal-btn, .spin-btn{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="wordmark"><span class="spoon">🥄</span>Ladle</div>
+    <p class="tagline">Can't decide what to cook? Spin for a recipe.</p>
+    <button class="mute" id="mute" aria-label="Mute sounds" aria-pressed="false">🔊</button>
+  </header>
+
+  <div class="picker" role="group" aria-label="Pick a meal">
+    <button class="meal-btn" data-meal="breakfast" aria-pressed="false">
+      <span class="dot">🍳</span>Breakfast
+    </button>
+    <button class="meal-btn" data-meal="lunch" aria-pressed="false">
+      <span class="dot">🥗</span>Lunch
+    </button>
+    <button class="meal-btn" data-meal="dinner" aria-pressed="false">
+      <span class="dot">🍲</span>Dinner
+    </button>
+  </div>
+
+  <div class="spin-row">
+    <button class="spin-btn" id="spin" disabled>Pick a meal above to spin</button>
+  </div>
+
+  <div class="rail" aria-hidden="true"></div>
+  <main class="ticket" id="ticket" aria-live="polite">
+    <div class="ticket-empty">
+      <span class="big">🎰</span>
+      Choose breakfast, lunch or dinner,<br>then hit <strong>Spin</strong> — a random recipe ticket lands here.
+    </div>
+  </main>
+
+  <footer>36 recipes on the rail · shuffled fresh every spin</footer>
+</div>
+
+<script>
+/* Each recipe can also take an optional  photo:"https://..."  field.
+   If present, the photo replaces the illustrated plate in the header. */
+const RECIPES = {
+  breakfast: [
+    {
+      name:"Classic Shakshuka", emoji:"🍅",
+      desc:"Eggs poached in a spiced tomato and pepper sauce. Bread for dipping is not optional.",
+      time:"25 min", servings:"2",
+      ingredients:[
+        ["2 tbsp","olive oil"],
+        ["1","onion, diced"],
+        ["1","red bell pepper, sliced"],
+        ["3 cloves","garlic, minced"],
+        ["1 tsp each","cumin & sweet paprika"],
+        ["1 can (400 g)","crushed tomatoes"],
+        ["4","eggs"],
+        ["to taste","salt, pepper, chili flakes, parsley"]
+      ],
+      steps:[
+        "Heat the oil in a wide pan and soften the onion and pepper, about 6 minutes.",
+        "Stir in garlic, cumin and paprika; cook 1 minute until fragrant.",
+        "Add tomatoes, season, and simmer 8–10 minutes until slightly thickened.",
+        "Make 4 wells and crack an egg into each. Cover and cook 5–7 minutes until whites are set.",
+        "Scatter with parsley and chili flakes; serve straight from the pan with bread."
+      ]
+    },
+    {
+      name:"Banana Oat Pancakes", emoji:"🥞",
+      desc:"Blender pancakes — naturally sweet, no flour, ready before the coffee finishes.",
+      time:"20 min", servings:"2",
+      ingredients:[
+        ["2","ripe bananas"],
+        ["2","eggs"],
+        ["1 cup","rolled oats"],
+        ["1 tsp","baking powder"],
+        ["1/2 tsp","cinnamon"],
+        ["pinch","salt"],
+        ["for serving","maple syrup & berries"]
+      ],
+      steps:[
+        "Blend bananas, eggs, oats, baking powder, cinnamon and salt until smooth. Rest 5 minutes.",
+        "Heat a lightly oiled nonstick pan over medium heat.",
+        "Pour small rounds of batter; cook 2 minutes until bubbles form, flip, cook 1–2 minutes more.",
+        "Stack and top with syrup and berries."
+      ]
+    },
+    {
+      name:"Overnight Oats, Three Ways", emoji:"🫐",
+      desc:"Mix tonight, grab tomorrow. The base takes 5 minutes; the fridge does the rest.",
+      time:"5 min + overnight", servings:"1",
+      ingredients:[
+        ["1/2 cup","rolled oats"],
+        ["1/2 cup","milk (any kind)"],
+        ["1/4 cup","yogurt"],
+        ["1 tsp","chia seeds"],
+        ["1 tsp","honey"],
+        ["topping","banana + peanut butter, or berries, or apple + cinnamon"]
+      ],
+      steps:[
+        "Stir oats, milk, yogurt, chia and honey together in a jar.",
+        "Seal and refrigerate overnight (or at least 4 hours).",
+        "In the morning, loosen with a splash of milk and add your topping."
+      ]
+    },
+    {
+      name:"Herby Three-Egg Omelet", emoji:"🍳",
+      desc:"Soft, folded, flecked with herbs and melted cheese. A weekday luxury.",
+      time:"10 min", servings:"1",
+      ingredients:[
+        ["3","eggs"],
+        ["1 tbsp","butter"],
+        ["1/4 cup","grated cheese"],
+        ["2 tbsp","chopped chives or parsley"],
+        ["to taste","salt & pepper"]
+      ],
+      steps:[
+        "Whisk eggs with salt, pepper and half the herbs until uniform.",
+        "Melt butter in a nonstick pan over medium heat until foaming.",
+        "Pour in eggs; pull the edges inward as they set, tilting the pan to fill gaps.",
+        "When the top is barely wet, add cheese, fold in half, and slide onto a plate. Finish with herbs."
+      ]
+    },
+    {
+      name:"Cinnamon French Toast", emoji:"🍞",
+      desc:"Day-old bread, custard bath, golden crust. Weekend rules apply.",
+      time:"15 min", servings:"2",
+      ingredients:[
+        ["4 slices","thick bread (slightly stale)"],
+        ["2","eggs"],
+        ["1/2 cup","milk"],
+        ["1 tsp","vanilla"],
+        ["1/2 tsp","cinnamon"],
+        ["1 tbsp","butter"],
+        ["for serving","maple syrup or honey"]
+      ],
+      steps:[
+        "Whisk eggs, milk, vanilla and cinnamon in a shallow dish.",
+        "Soak each bread slice 20 seconds per side.",
+        "Cook in butter over medium heat, 2–3 minutes per side, until deep golden.",
+        "Serve hot with syrup."
+      ]
+    },
+    {
+      name:"Granola Yogurt Parfait", emoji:"🍨",
+      desc:"Layers of thick yogurt, crunchy granola and fruit — breakfast that looks like dessert.",
+      time:"5 min", servings:"1",
+      ingredients:[
+        ["1 cup","thick yogurt (Greek-style)"],
+        ["1/2 cup","granola"],
+        ["1/2 cup","berries or chopped fruit"],
+        ["1 tsp","honey"],
+        ["optional","toasted nuts or seeds"]
+      ],
+      steps:[
+        "Spoon a third of the yogurt into a glass, then a layer of granola, then fruit.",
+        "Repeat the layers until everything is used.",
+        "Drizzle with honey and finish with nuts."
+      ]
+    },
+    {
+      name:"Avocado Toast with Jammy Egg", emoji:"🥑",
+      desc:"Smashed avocado, a 7-minute egg, lemon and chili. The classic, done properly.",
+      time:"12 min", servings:"1",
+      ingredients:[
+        ["2 slices","good bread"],
+        ["1","ripe avocado"],
+        ["2","eggs"],
+        ["1/2","lemon, juiced"],
+        ["to taste","salt, pepper, chili flakes"],
+        ["1 tsp","olive oil"]
+      ],
+      steps:[
+        "Boil the eggs exactly 7 minutes, then move to cold water and peel.",
+        "Toast the bread while the eggs cook.",
+        "Mash avocado with lemon juice, salt and pepper; spread thickly on toast.",
+        "Halve the eggs on top, drizzle with oil, and hit with chili flakes."
+      ]
+    },
+    {
+      name:"Green Smoothie Bowl", emoji:"🥝",
+      desc:"Cold, thick and spoonable — blend it frozen and pile on the toppings.",
+      time:"8 min", servings:"1",
+      ingredients:[
+        ["1","frozen banana"],
+        ["1/2 cup","frozen mango"],
+        ["1 handful","spinach"],
+        ["1/2 cup","milk or juice"],
+        ["1 tbsp","nut butter"],
+        ["topping","granola, coconut flakes, sliced fruit"]
+      ],
+      steps:[
+        "Blend banana, mango, spinach, milk and nut butter until thick and smooth.",
+        "Pour into a bowl — it should hold a spoon upright.",
+        "Arrange toppings in rows and eat immediately."
+      ]
+    },
+    {
+      name:"Breakfast Burrito", emoji:"🌯",
+      desc:"Scrambled eggs, cheese, beans and salsa wrapped tight. Fuel with a handle.",
+      time:"15 min", servings:"2",
+      ingredients:[
+        ["4","eggs"],
+        ["2","large tortillas"],
+        ["1/2 cup","cooked black beans"],
+        ["1/2 cup","grated cheese"],
+        ["3 tbsp","salsa"],
+        ["1/2","avocado, sliced"],
+        ["1 tbsp","butter"]
+      ],
+      steps:[
+        "Scramble the eggs gently in butter until just set; season.",
+        "Warm the tortillas in a dry pan, 20 seconds per side.",
+        "Layer eggs, beans, cheese, salsa and avocado down the middle of each.",
+        "Fold the ends in, roll tight, and sear seam-side down 1 minute to seal."
+      ]
+    },
+    {
+      name:"Spinach & Feta Scramble", emoji:"🥬",
+      desc:"Soft scrambled eggs with wilted spinach and salty feta. Five ingredients, big payoff.",
+      time:"10 min", servings:"1",
+      ingredients:[
+        ["3","eggs"],
+        ["2 handfuls","spinach"],
+        ["1/4 cup","feta, crumbled"],
+        ["1 tbsp","olive oil or butter"],
+        ["to taste","black pepper"],
+        ["for serving","toast"]
+      ],
+      steps:[
+        "Wilt the spinach in oil over medium heat, about 1 minute.",
+        "Add beaten eggs and stir slowly, pulling curds from the edges.",
+        "When nearly set, fold in the feta and remove from heat — it finishes cooking off the flame.",
+        "Pepper generously and pile onto toast."
+      ]
+    },
+    {
+      name:"Honey Almond Porridge", emoji:"🍯",
+      desc:"Creamy stovetop oats with toasted almonds and a ribbon of honey.",
+      time:"12 min", servings:"1",
+      ingredients:[
+        ["1/2 cup","rolled oats"],
+        ["1 cup","milk"],
+        ["1/2 cup","water"],
+        ["pinch","salt"],
+        ["2 tbsp","sliced almonds"],
+        ["1 tbsp","honey"],
+        ["optional","sliced banana or apple"]
+      ],
+      steps:[
+        "Toast the almonds in a dry pot until golden; set aside.",
+        "Simmer oats with milk, water and salt, stirring, 6–8 minutes until creamy.",
+        "Spoon into a bowl, drizzle with honey, and top with almonds and fruit."
+      ]
+    },
+    {
+      name:"Israeli Breakfast Plate", emoji:"🥒",
+      desc:"Chopped salad, labneh, olives and a soft-boiled egg — the hotel buffet, scaled down.",
+      time:"15 min", servings:"2",
+      ingredients:[
+        ["2","eggs"],
+        ["2","tomatoes, finely diced"],
+        ["2","cucumbers, finely diced"],
+        ["1/2","lemon, juiced"],
+        ["2 tbsp","olive oil"],
+        ["1/2 cup","labneh or thick yogurt"],
+        ["handful","olives"],
+        ["for serving","warm bread, za'atar"]
+      ],
+      steps:[
+        "Boil the eggs 6–7 minutes for jammy yolks; cool and peel.",
+        "Toss tomatoes and cucumbers with lemon, half the oil and salt.",
+        "Spread labneh on a plate, drizzle with the rest of the oil and dust with za'atar.",
+        "Arrange salad, eggs and olives alongside; serve with warm bread."
+      ]
+    }
+  ],
+  lunch: [
+    {
+      name:"Sabich-Style Pita", emoji:"🍆",
+      desc:"Fried eggplant, egg, salad and amba stuffed into a warm pita. Street-food lunch at home.",
+      time:"30 min", servings:"2",
+      ingredients:[
+        ["1","eggplant, sliced 1 cm thick"],
+        ["2","hard-boiled eggs, sliced"],
+        ["2","pitas"],
+        ["1","tomato + 1 cucumber, diced"],
+        ["3 tbsp","tahini"],
+        ["1 tbsp","amba or pickles"],
+        ["for frying","oil, salt"]
+      ],
+      steps:[
+        "Salt the eggplant slices, rest 10 minutes, then pat dry.",
+        "Fry eggplant in hot oil until deep golden on both sides; drain on paper.",
+        "Mix tomato and cucumber with a pinch of salt for a quick salad.",
+        "Warm the pitas, then layer eggplant, egg, salad, tahini and amba inside."
+      ]
+    },
+    {
+      name:"Greek Chicken & Rice Bowl", emoji:"🫒",
+      desc:"Lemony chicken, fluffy rice, cucumber, feta and olives in one bowl.",
+      time:"30 min", servings:"2",
+      ingredients:[
+        ["2","chicken breasts, cubed"],
+        ["1 cup","rice"],
+        ["1","cucumber, diced"],
+        ["1 cup","cherry tomatoes, halved"],
+        ["1/3 cup","feta, crumbled"],
+        ["2 tbsp","olive oil + juice of 1 lemon"],
+        ["1 tsp","dried oregano"],
+        ["handful","olives"]
+      ],
+      steps:[
+        "Cook the rice according to the package.",
+        "Toss chicken with oil, lemon, oregano, salt and pepper; sear 6–8 minutes until cooked through.",
+        "Build bowls: rice, chicken, cucumber, tomatoes, olives, feta.",
+        "Finish with extra lemon and olive oil."
+      ]
+    },
+    {
+      name:"Caprese Pasta", emoji:"🍝",
+      desc:"Hot pasta meets cold tomatoes, mozzarella and basil — the sauce makes itself.",
+      time:"20 min", servings:"2",
+      ingredients:[
+        ["250 g","short pasta"],
+        ["2 cups","cherry tomatoes, halved"],
+        ["125 g","mozzarella, torn"],
+        ["1 handful","basil leaves"],
+        ["3 tbsp","olive oil"],
+        ["1 clove","garlic, grated"],
+        ["to taste","salt & pepper"]
+      ],
+      steps:[
+        "Boil the pasta in well-salted water until al dente.",
+        "Meanwhile toss tomatoes with oil, garlic, salt and pepper in a big bowl.",
+        "Drain pasta and tip it hot onto the tomatoes; toss 1 minute so they soften.",
+        "Fold in mozzarella and basil and serve warm."
+      ]
+    },
+    {
+      name:"Tuna & White Bean Salad", emoji:"🐟",
+      desc:"Pantry lunch with a sharp lemon dressing. No cooking, real food.",
+      time:"10 min", servings:"2",
+      ingredients:[
+        ["1 can","tuna, drained"],
+        ["1 can","white beans, rinsed"],
+        ["1/2","red onion, thinly sliced"],
+        ["1","celery stalk, sliced"],
+        ["2 tbsp","olive oil + juice of 1 lemon"],
+        ["1 tbsp","chopped parsley"],
+        ["to taste","salt & pepper"]
+      ],
+      steps:[
+        "Whisk oil, lemon, salt and pepper in a large bowl.",
+        "Add beans, onion, celery and parsley; toss to coat.",
+        "Flake in the tuna and fold gently. Serve with bread or over greens."
+      ]
+    },
+    {
+      name:"Grilled Cheese & Quick Tomato Soup", emoji:"🥪",
+      desc:"The dunking duo. Soup from a can of good tomatoes, sandwich with a proper crust.",
+      time:"25 min", servings:"2",
+      ingredients:[
+        ["1 can (400 g)","crushed tomatoes"],
+        ["1","small onion, diced"],
+        ["1 clove","garlic"],
+        ["1/2 cup","cream or milk"],
+        ["4 slices","bread"],
+        ["4 slices","melting cheese"],
+        ["2 tbsp","butter"]
+      ],
+      steps:[
+        "Soften onion and garlic in a pot, add tomatoes and a cup of water; simmer 10 minutes.",
+        "Blend until smooth, stir in cream, season well, keep warm.",
+        "Butter the bread on the outside, fill with cheese, and toast in a pan until golden and melted.",
+        "Slice diagonally — for dunking — and serve with the soup."
+      ]
+    },
+    {
+      name:"Chicken Caesar Wrap", emoji:"🥙",
+      desc:"All the Caesar essentials rolled tight enough to eat with one hand.",
+      time:"20 min", servings:"2",
+      ingredients:[
+        ["2","tortillas or laffa"],
+        ["1","chicken breast, sliced"],
+        ["2 cups","romaine, shredded"],
+        ["3 tbsp","Caesar dressing"],
+        ["1/4 cup","grated parmesan"],
+        ["1/2 cup","croutons, crushed"]
+      ],
+      steps:[
+        "Season and pan-fry the chicken 3–4 minutes per side; rest, then slice.",
+        "Toss romaine with dressing, parmesan and crushed croutons.",
+        "Lay chicken and salad along each tortilla, fold the ends and roll tight.",
+        "Halve on the diagonal and serve."
+      ]
+    },
+    {
+      name:"Veggie Fried Rice", emoji:"🍚",
+      desc:"Yesterday's rice is the secret. Ten minutes, one hot pan, endless variations.",
+      time:"15 min", servings:"2",
+      ingredients:[
+        ["3 cups","cooked, cooled rice"],
+        ["2","eggs, beaten"],
+        ["1 cup","frozen peas & carrots"],
+        ["2","green onions, sliced"],
+        ["2 tbsp","soy sauce"],
+        ["1 tsp","sesame oil"],
+        ["2 tbsp","neutral oil"]
+      ],
+      steps:[
+        "Heat a wok or large pan until very hot; scramble the eggs in a little oil and set aside.",
+        "Add remaining oil, then the vegetables; stir-fry 2 minutes.",
+        "Add rice, pressing it into the pan and tossing until heated and lightly crisped.",
+        "Return the eggs, add soy and sesame oil, toss, and top with green onions."
+      ]
+    },
+    {
+      name:"Red Lentil Soup", emoji:"🥣",
+      desc:"Cumin, lemon, and lentils that collapse into velvet. Cheap, fast, comforting.",
+      time:"30 min", servings:"3",
+      ingredients:[
+        ["1 cup","red lentils, rinsed"],
+        ["1","onion, diced"],
+        ["1","carrot, diced"],
+        ["2 cloves","garlic"],
+        ["1 tsp","cumin + 1/2 tsp turmeric"],
+        ["4 cups","stock or water"],
+        ["1/2","lemon, juiced"],
+        ["2 tbsp","olive oil"]
+      ],
+      steps:[
+        "Soften onion and carrot in oil, about 5 minutes; add garlic and spices for 1 minute.",
+        "Add lentils and stock; simmer 18–20 minutes until lentils break down.",
+        "Blend partially for a creamy-but-textured soup, or leave rustic.",
+        "Season, brighten with lemon juice, and serve with bread."
+      ]
+    },
+    {
+      name:"Cheese Quesadillas with Pico", emoji:"🧀",
+      desc:"Crisp tortilla, molten cheese, fresh tomato salsa. Lunch in twelve minutes flat.",
+      time:"12 min", servings:"2",
+      ingredients:[
+        ["4","tortillas"],
+        ["1 1/2 cups","grated melting cheese"],
+        ["2","tomatoes, finely diced"],
+        ["1/4","red onion, minced"],
+        ["1/2","lime, juiced"],
+        ["1 handful","cilantro, chopped"],
+        ["optional","sour cream"]
+      ],
+      steps:[
+        "Mix tomatoes, onion, lime, cilantro and salt — that's the pico.",
+        "Fill tortillas with cheese, fold into half-moons.",
+        "Toast in a dry pan 2 minutes per side until golden and melted.",
+        "Cut into wedges and serve with pico and sour cream."
+      ]
+    },
+    {
+      name:"Cold Soba Noodle Bowl", emoji:"🍜",
+      desc:"Chilled buckwheat noodles in a sesame-soy dressing. Made for hot days.",
+      time:"15 min", servings:"2",
+      ingredients:[
+        ["200 g","soba noodles"],
+        ["1","cucumber, julienned"],
+        ["1","carrot, julienned"],
+        ["2 tbsp","soy sauce"],
+        ["1 tbsp","rice vinegar"],
+        ["1 tbsp","sesame oil"],
+        ["1 tsp","honey"],
+        ["1 tbsp","sesame seeds"]
+      ],
+      steps:[
+        "Cook soba per the package, then rinse under cold water until completely chilled.",
+        "Whisk soy, vinegar, sesame oil and honey into a dressing.",
+        "Toss noodles with the vegetables and dressing.",
+        "Shower with sesame seeds and serve cold."
+      ]
+    },
+    {
+      name:"Shawarma-Spiced Chicken Pita", emoji:"🌶️",
+      desc:"Pan shawarma — cumin, turmeric and paprika chicken with tahini in a warm pocket.",
+      time:"25 min", servings:"2",
+      ingredients:[
+        ["2","chicken thighs, sliced thin"],
+        ["1 tsp each","cumin, turmeric, paprika"],
+        ["1/2 tsp","cinnamon"],
+        ["2 tbsp","oil"],
+        ["2","pitas"],
+        ["3 tbsp","tahini"],
+        ["1","tomato + pickles, sliced"]
+      ],
+      steps:[
+        "Toss the chicken with the spices, salt and half the oil; rest 10 minutes.",
+        "Sear in a very hot pan with the remaining oil until charred at the edges, 5–6 minutes.",
+        "Warm the pitas and slather the inside with tahini.",
+        "Stuff with chicken, tomato and pickles."
+      ]
+    },
+    {
+      name:"Roasted Veggie Quinoa Bowl", emoji:"🥕",
+      desc:"Caramelized vegetables over fluffy quinoa with a lemon-tahini drizzle.",
+      time:"35 min", servings:"2",
+      ingredients:[
+        ["1 cup","quinoa"],
+        ["1","zucchini, chunked"],
+        ["1","red pepper, chunked"],
+        ["1","red onion, wedged"],
+        ["3 tbsp","olive oil"],
+        ["2 tbsp","tahini + juice of 1/2 lemon"],
+        ["1 tsp","smoked paprika"]
+      ],
+      steps:[
+        "Heat the oven to 220°C (425°F). Toss vegetables with oil, paprika and salt.",
+        "Roast 25 minutes until browned at the edges, turning once.",
+        "Meanwhile cook quinoa per the package and whisk tahini with lemon and water to a drizzle.",
+        "Pile vegetables over quinoa and zigzag the tahini on top."
+      ]
+    }
+  ],
+  dinner: [
+    {
+      name:"Sheet-Pan Lemon Chicken", emoji:"🍋",
+      desc:"Chicken thighs, potatoes and whole garlic roasted on one tray. The oven does the work.",
+      time:"50 min", servings:"4",
+      ingredients:[
+        ["8","chicken thighs"],
+        ["700 g","baby potatoes, halved"],
+        ["1","lemon, sliced"],
+        ["1 head","garlic, cloves separated"],
+        ["3 tbsp","olive oil"],
+        ["1 tbsp","oregano or za'atar"],
+        ["to taste","salt & pepper"]
+      ],
+      steps:[
+        "Heat the oven to 220°C (425°F).",
+        "Toss everything together on a large sheet pan, chicken skin-side up.",
+        "Roast 35–40 minutes until the chicken is golden and potatoes are tender.",
+        "Squeeze the roasted lemon over the tray and serve from the pan."
+      ]
+    },
+    {
+      name:"Beef & Broccoli Stir-Fry", emoji:"🥦",
+      desc:"Glossy, garlicky, faster than delivery. Get the pan smoking hot first.",
+      time:"25 min", servings:"3",
+      ingredients:[
+        ["400 g","beef (sirloin/flank), thinly sliced"],
+        ["1 head","broccoli, in florets"],
+        ["3 tbsp","soy sauce"],
+        ["1 tbsp","cornstarch"],
+        ["1 tbsp","honey"],
+        ["3 cloves","garlic + 1 tbsp ginger, minced"],
+        ["2 tbsp","oil"],
+        ["for serving","steamed rice"]
+      ],
+      steps:[
+        "Toss beef with cornstarch and 1 tbsp soy; rest 10 minutes.",
+        "Stir-fry broccoli in hot oil 3 minutes with a splash of water; remove.",
+        "Sear beef in batches until browned, then add garlic and ginger for 30 seconds.",
+        "Return broccoli with remaining soy and honey; toss until glossy. Serve over rice."
+      ]
+    },
+    {
+      name:"Baked Salmon with Herb Couscous", emoji:"🐠",
+      desc:"Fifteen minutes of effort, restaurant-grade plate. Lemon on everything.",
+      time:"30 min", servings:"2",
+      ingredients:[
+        ["2","salmon fillets"],
+        ["1 cup","couscous"],
+        ["1 cup","boiling stock or water"],
+        ["1","lemon"],
+        ["2 tbsp","olive oil"],
+        ["1/2 cup","chopped herbs (parsley, dill, mint)"],
+        ["to taste","salt & pepper"]
+      ],
+      steps:[
+        "Heat the oven to 200°C (400°F). Season salmon with oil, salt and lemon zest.",
+        "Bake 12–14 minutes, until just opaque in the center.",
+        "Meanwhile pour boiling stock over couscous, cover 5 minutes, then fluff with a fork.",
+        "Fold herbs, lemon juice and oil into the couscous; serve the salmon on top."
+      ]
+    },
+    {
+      name:"Mushroom Risotto", emoji:"🍄",
+      desc:"A pot, a spoon, and twenty unhurried minutes of stirring. Worth every one.",
+      time:"45 min", servings:"3",
+      ingredients:[
+        ["1 1/2 cups","arborio rice"],
+        ["300 g","mushrooms, sliced"],
+        ["1","onion, finely diced"],
+        ["5 cups","hot stock"],
+        ["1/2 cup","white wine (optional)"],
+        ["1/2 cup","grated parmesan"],
+        ["3 tbsp","butter + 2 tbsp oil"]
+      ],
+      steps:[
+        "Brown the mushrooms in oil; set aside.",
+        "Soften onion in half the butter, add rice and toast 2 minutes.",
+        "Add wine, then hot stock one ladle at a time, stirring until absorbed before the next — about 20 minutes.",
+        "When the rice is creamy with a slight bite, fold in mushrooms, parmesan and remaining butter.",
+        "Rest 2 minutes off the heat, then serve."
+      ]
+    },
+    {
+      name:"Chicken Fajitas", emoji:"🫑",
+      desc:"Sizzling peppers and spiced chicken, build-your-own at the table.",
+      time:"30 min", servings:"4",
+      ingredients:[
+        ["3","chicken breasts, sliced"],
+        ["2","bell peppers, sliced"],
+        ["1","onion, sliced"],
+        ["2 tsp each","cumin, paprika, garlic powder"],
+        ["1","lime"],
+        ["8","tortillas"],
+        ["for serving","sour cream, salsa, avocado"]
+      ],
+      steps:[
+        "Toss chicken with the spices, salt and a little oil.",
+        "Sear chicken in a hot pan 5–6 minutes until charred at the edges; remove.",
+        "Cook peppers and onion in the same pan until blistered and soft.",
+        "Return the chicken, squeeze the lime over everything, and serve with warm tortillas and toppings."
+      ]
+    },
+    {
+      name:"Spaghetti Bolognese", emoji:"🍝",
+      desc:"A weeknight version of the slow classic — deep flavor in under an hour.",
+      time:"50 min", servings:"4",
+      ingredients:[
+        ["400 g","spaghetti"],
+        ["500 g","ground beef"],
+        ["1","onion + 1 carrot, finely diced"],
+        ["2 cloves","garlic"],
+        ["2 tbsp","tomato paste"],
+        ["1 can (400 g)","crushed tomatoes"],
+        ["1/2 cup","milk"],
+        ["for serving","parmesan"]
+      ],
+      steps:[
+        "Brown the beef hard in a wide pot; push aside and soften onion and carrot.",
+        "Add garlic and tomato paste; cook 2 minutes until darkened.",
+        "Add tomatoes, milk and a cup of water; simmer gently 30 minutes.",
+        "Cook spaghetti, toss with the sauce and a splash of pasta water, and top with parmesan."
+      ]
+    },
+    {
+      name:"Stuffed Bell Peppers", emoji:"🫑",
+      desc:"Rice, herbs and meat baked inside sweet peppers until everything melds.",
+      time:"60 min", servings:"4",
+      ingredients:[
+        ["4","large bell peppers, tops cut, seeded"],
+        ["300 g","ground beef or turkey"],
+        ["1 cup","cooked rice"],
+        ["1","onion, diced"],
+        ["1 can (400 g)","crushed tomatoes"],
+        ["1 tsp","paprika + 1 tsp dried herbs"],
+        ["1/2 cup","grated cheese"]
+      ],
+      steps:[
+        "Heat the oven to 190°C (375°F). Brown the meat with the onion and spices.",
+        "Stir in rice and half the tomatoes; season well.",
+        "Stand the peppers in a baking dish, fill, and pour the rest of the tomatoes around them.",
+        "Cover with foil and bake 35 minutes; uncover, top with cheese, bake 10 more."
+      ]
+    },
+    {
+      name:"Coconut Chickpea Curry", emoji:"🥥",
+      desc:"Creamy, gently spiced, fully pantry-powered. Vegan without trying to be.",
+      time:"30 min", servings:"3",
+      ingredients:[
+        ["2 cans","chickpeas, rinsed"],
+        ["1 can (400 ml)","coconut milk"],
+        ["1","onion, diced"],
+        ["3 cloves","garlic + 1 tbsp ginger"],
+        ["2 tbsp","curry powder or paste"],
+        ["1 can (400 g)","crushed tomatoes"],
+        ["1 handful","spinach"],
+        ["for serving","rice and lime"]
+      ],
+      steps:[
+        "Soften the onion in oil, then add garlic, ginger and curry powder for 1 minute.",
+        "Add tomatoes, chickpeas and coconut milk; simmer 15 minutes until thickened.",
+        "Stir in spinach until wilted; season and add a squeeze of lime.",
+        "Serve over rice."
+      ]
+    },
+    {
+      name:"Crispy Chicken Schnitzel & Mash", emoji:"🍗",
+      desc:"Golden, crackling breadcrumb crust over buttery mashed potatoes. A family-table anchor.",
+      time:"40 min", servings:"3",
+      ingredients:[
+        ["3","chicken breasts, butterflied & flattened"],
+        ["1 cup","flour + 2 beaten eggs"],
+        ["1 1/2 cups","breadcrumbs (panko if possible)"],
+        ["1 tsp","paprika"],
+        ["700 g","potatoes, peeled"],
+        ["3 tbsp","butter + splash of milk"],
+        ["for frying","oil; lemon wedges to serve"]
+      ],
+      steps:[
+        "Boil the potatoes in salted water until tender, then mash with butter and milk.",
+        "Season the chicken; dredge in flour, then egg, then breadcrumbs mixed with paprika.",
+        "Shallow-fry in 1 cm of hot oil, 3–4 minutes per side, until deep golden.",
+        "Drain on paper, salt immediately, and serve over the mash with lemon wedges."
+      ]
+    },
+    {
+      name:"Garlic Butter Shrimp Pasta", emoji:"🍤",
+      desc:"Shrimp seared in garlic butter, tossed with linguine and a hit of lemon and chili.",
+      time:"20 min", servings:"2",
+      ingredients:[
+        ["250 g","linguine or spaghetti"],
+        ["300 g","shrimp, peeled"],
+        ["4 cloves","garlic, sliced"],
+        ["3 tbsp","butter"],
+        ["1","lemon (zest + juice)"],
+        ["1/2 tsp","chili flakes"],
+        ["1 handful","parsley, chopped"]
+      ],
+      steps:[
+        "Boil the pasta in salted water; reserve a cup of pasta water before draining.",
+        "Sear shrimp in half the butter, 1–2 minutes per side; remove.",
+        "Soften garlic and chili in the remaining butter, then add lemon juice and a splash of pasta water.",
+        "Toss in pasta and shrimp until glossy; finish with zest and parsley."
+      ]
+    },
+    {
+      name:"One-Pot Chicken & Rice", emoji:"🍛",
+      desc:"Chicken thighs braised right on top of turmeric rice. One pot, zero juggling.",
+      time:"45 min", servings:"4",
+      ingredients:[
+        ["6","chicken thighs"],
+        ["1 1/2 cups","rice, rinsed"],
+        ["1","onion, diced"],
+        ["3 cloves","garlic"],
+        ["1 tsp","turmeric + 1 tsp cumin"],
+        ["3 cups","hot stock"],
+        ["1 handful","peas or chopped parsley"]
+      ],
+      steps:[
+        "Brown the seasoned chicken skin-side down in a wide pot; remove.",
+        "Soften onion in the drippings; add garlic and spices for 1 minute.",
+        "Stir in rice, pour over the stock, and nestle the chicken on top.",
+        "Cover and simmer on low 22–25 minutes until rice is tender.",
+        "Rest 5 minutes, scatter with peas or parsley, and serve from the pot."
+      ]
+    },
+    {
+      name:"Honey-Glazed Meatballs", emoji:"🧆",
+      desc:"Juicy meatballs lacquered in a sticky honey-soy glaze, over rice or noodles.",
+      time:"35 min", servings:"4",
+      ingredients:[
+        ["500 g","ground beef or chicken"],
+        ["1/2 cup","breadcrumbs + 1 egg"],
+        ["2","green onions, minced"],
+        ["3 tbsp","soy sauce"],
+        ["2 tbsp","honey"],
+        ["1 tbsp","rice vinegar"],
+        ["2 cloves","garlic + 1 tsp ginger, grated"],
+        ["for serving","rice, sesame seeds"]
+      ],
+      steps:[
+        "Mix meat with breadcrumbs, egg, green onions, 1 tbsp soy and a pinch of salt; roll into balls.",
+        "Brown the meatballs in a little oil on all sides, about 8 minutes.",
+        "Whisk remaining soy, honey, vinegar, garlic and ginger; pour into the pan.",
+        "Simmer 5 minutes, rolling the meatballs until lacquered and cooked through.",
+        "Serve over rice with sesame seeds."
+      ]
+    }
+  ]
+};
+
+const MEAL_LABEL = { breakfast:"Breakfast", lunch:"Lunch", dinner:"Dinner" };
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let currentMeal = null;
+let lastIndex = { breakfast:-1, lunch:-1, dinner:-1 };
+let spinning = false;
+let muted = false;
+
+const ticket = document.getElementById("ticket");
+const spinBtn = document.getElementById("spin");
+const muteBtn = document.getElementById("mute");
+const mealBtns = document.querySelectorAll(".meal-btn");
+
+/* ---------- sound: synthesized with Web Audio, no files needed ---------- */
+let audioCtx = null;
+function ctx(){
+  if (muted) return null;
+  if (!audioCtx){
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+/* soft marimba-like note: sine + a whisper of 3rd harmonic, fast decay */
+function note(freq, when, dur, vol){
+  const c = ctx(); if (!c) return;
+  const t = c.currentTime + when;
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  gain.connect(c.destination);
+  [[1, 1], [3, 0.18]].forEach(([mult, amt]) => {
+    const o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.value = freq * mult;
+    const g = c.createGain();
+    g.gain.value = amt;
+    o.connect(g); g.connect(gain);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+}
+function tickSound(i, total){
+  // gentle woodblock tick that rises slightly as the reel slows
+  note(880 + i * 22, 0, 0.07, 0.04);
+}
+function landSound(){
+  // pleasant two-note "ready!" chime: G5 → C6
+  note(783.99, 0,    0.45, 0.10);
+  note(1046.5, 0.13, 0.60, 0.10);
+}
+
+muteBtn.addEventListener("click", () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? "🔇" : "🔊";
+  muteBtn.setAttribute("aria-label", muted ? "Unmute sounds" : "Mute sounds");
+  muteBtn.setAttribute("aria-pressed", String(muted));
+});
+
+/* ---------- app logic ---------- */
+mealBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentMeal = btn.dataset.meal;
+    mealBtns.forEach(b => b.setAttribute("aria-pressed", String(b === btn)));
+    spinBtn.disabled = false;
+    spinBtn.className = "spin-btn meal-" + currentMeal;
+    spinBtn.textContent = "Spin a " + MEAL_LABEL[currentMeal].toLowerCase() + " recipe";
+  });
+});
+
+spinBtn.addEventListener("click", () => spin());
+
+function pickIndex(meal){
+  const pool = RECIPES[meal];
+  let i;
+  do { i = Math.floor(Math.random() * pool.length); }
+  while (pool.length > 1 && i === lastIndex[meal]);
+  lastIndex[meal] = i;
+  return i;
+}
+
+function heroHTML(meal, r){
+  if (r.photo){
+    return '<div class="hero ' + meal + '"><img class="photo" src="' + esc(r.photo) +
+           '" alt="' + esc(r.name) + '" loading="lazy"></div>';
+  }
+  return '<div class="hero ' + meal + '" aria-hidden="true"><div class="plate">' +
+         esc(r.emoji || "🍽️") + "</div></div>";
+}
+
+function spin(){
+  if (!currentMeal || spinning) return;
+  spinning = true;
+  spinBtn.disabled = true;
+
+  const pool = RECIPES[currentMeal];
+  const finalIndex = pickIndex(currentMeal);
+
+  if (REDUCED){
+    landSound();
+    renderRecipe(currentMeal, pool[finalIndex]);
+    finishSpin();
+    return;
+  }
+
+  // slot-machine flicker through plates and names, then settle
+  ticket.classList.remove("dealt");
+  ticket.innerHTML =
+    '<span class="meal-tag ' + currentMeal + '">' + MEAL_LABEL[currentMeal] + "</span>" +
+    '<div class="hero ' + currentMeal + '" aria-hidden="true"><div class="plate" id="flick-plate">🍽️</div></div>' +
+    '<h2 class="recipe-name spinning" id="flick">&nbsp;</h2>';
+  const flick = document.getElementById("flick");
+  const flickPlate = document.getElementById("flick-plate");
+
+  let ticks = 0;
+  const totalTicks = 12;
+  function tick(){
+    ticks++;
+    const r = pool[Math.floor(Math.random() * pool.length)];
+    flick.textContent = r.name;
+    flickPlate.textContent = r.emoji || "🍽️";
+    tickSound(ticks, totalTicks);
+    if (ticks < totalTicks){
+      setTimeout(tick, 45 + ticks * 14); // decelerate
+    } else {
+      landSound();
+      renderRecipe(currentMeal, pool[finalIndex]);
+      finishSpin();
+    }
+  }
+  tick();
+}
+
+function finishSpin(){
+  spinning = false;
+  spinBtn.disabled = false;
+}
+
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function renderRecipe(meal, r){
+  const ing = r.ingredients.map(([amt, item]) =>
+    "<li><span class='amt'>" + esc(amt) + "</span><span>" + esc(item) + "</span></li>"
+  ).join("");
+  const steps = r.steps.map(s => "<li><span>" + esc(s) + "</span></li>").join("");
+
+  ticket.innerHTML =
+    '<span class="meal-tag ' + meal + '">' + MEAL_LABEL[meal] + "</span>" +
+    heroHTML(meal, r) +
+    '<h2 class="recipe-name">' + esc(r.name) + "</h2>" +
+    '<p class="recipe-desc">' + esc(r.desc) + "</p>" +
+    '<div class="meta"><span><b>Time</b>' + esc(r.time) + "</span>" +
+    "<span><b>Serves</b>" + esc(r.servings) + "</span></div>" +
+    '<h3 class="section-label">Ingredients</h3><ul class="ingredients">' + ing + "</ul>" +
+    '<h3 class="section-label">Method</h3><ol class="steps">' + steps + "</ol>" +
+    '<button class="again" onclick="spin()">↻ Spin another ' + MEAL_LABEL[meal].toLowerCase() + "</button>";
+
+  ticket.classList.remove("dealt");
+  void ticket.offsetWidth; // restart animation
+  ticket.classList.add("dealt");
+}
+</script>
+</body>
+</html>
